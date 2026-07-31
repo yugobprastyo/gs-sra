@@ -37,7 +37,7 @@ const INSTRUMENT_TASK_MAP = {
   STACK: { taskName: 'transfer protocol', errorType: 'Gripper Jammed' },
 };
 
-const generateUniqueId = () => `evt-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+const generateUniqueId = () => `evt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
 export default function App() {
   const [activeMainMenu, setActiveMainMenu] = useState('Runs');
@@ -48,12 +48,13 @@ export default function App() {
   const [isSimulating, setIsSimulating] = useState(false);
   const [simTimer, setSimTimer] = useState(0);
   
-  // Simulation Config & Connection State
+  // Simulation Config State
   const [selectedErrorInst, setSelectedErrorInst] = useState(null);
   const [errorCategory, setErrorCategory] = useState('Instrument Error');
   const [instrumentConnection, setInstrumentConnection] = useState('Connected');
   
-  // Next Target Instrument Config
+  // Target Instrument Config
+  const [isLastTaskConfig, setIsLastTaskConfig] = useState(false);
   const [nextTargetInst, setNextTargetInst] = useState('STACK');
   const [nextInstStatusConfig, setNextInstStatusConfig] = useState('Idle');
   const [nextInstConnConfig, setNextInstConnConfig] = useState('Connected');
@@ -65,7 +66,7 @@ export default function App() {
   const [isSkipModalOpen, setIsSkipModalOpen] = useState(false);
   const [activeEventForConfirmation, setActiveEventForConfirmation] = useState(null);
 
-  // Detail & Navigation States
+  // Detail Navigation States
   const [selectedRunId, setSelectedRunId] = useState(1);
   const [activeTab, setActiveTab] = useState('Run Details');
   const [activeSubTab, setActiveSubTab] = useState('Events');
@@ -92,7 +93,8 @@ export default function App() {
       errorCategory: category, 
       nextInstrument, 
       nextInstStatus, 
-      nextInstConnectionStatus 
+      nextInstConnectionStatus,
+      isLastTask
     } = payload;
 
     setRuns(INITIAL_RUNS);
@@ -101,6 +103,9 @@ export default function App() {
     setErrorCategory(category);
     setInstrumentConnection('Connected');
     
+    // Simpan konfigurasi Last Task
+    setIsLastTaskConfig(Boolean(isLastTask));
+
     setNextTargetInst(nextInstrument || (instrument === 'STACK' ? 'BlueWasher' : 'STACK'));
     setNextInstStatusConfig(nextInstStatus || 'Idle');
     setNextInstConnConfig(nextInstConnectionStatus || 'Connected');
@@ -114,6 +119,7 @@ export default function App() {
     setIsSimulating(false);
     setSelectedErrorInst(null);
     setInstrumentConnection('Connected');
+    setIsLastTaskConfig(false);
     setNextTargetInst('STACK');
     setNextInstStatusConfig('Idle');
     setNextInstConnConfig('Connected');
@@ -168,7 +174,11 @@ export default function App() {
         errorType: errorTitleMsg,
         connectionStatus: errorCategory === 'Instrument Disconnect' ? 'Disconnected' : 'Connected',
         instStatus: 'Faulted',
-        nextInstrument: nextTargetInst,
+
+        // Konfigurasi Task Kritis
+        isLastTask: isLastTaskConfig,
+        nextInstrument: isLastTaskConfig ? '' : nextTargetInst,
+
         nextInstConnectionStatus: nextInstConnConfig, 
         nextInstStatus: nextInstStatusConfig,         
         nextInstConsumableStatus: 'OK',
@@ -199,7 +209,17 @@ export default function App() {
 
       setIsSimulating(false);
     }
-  }, [simTimer, isSimulating, selectedErrorInst, errorCategory, nextTargetInst, nextInstStatusConfig, nextInstConnConfig, addEventToRun]);
+  }, [
+    simTimer, 
+    isSimulating, 
+    selectedErrorInst, 
+    errorCategory, 
+    isLastTaskConfig, 
+    nextTargetInst, 
+    nextInstStatusConfig, 
+    nextInstConnConfig, 
+    addEventToRun
+  ]);
 
   const handleUserActionRequest = (actionType, eventData) => {
     setActiveEventForConfirmation(eventData);
@@ -540,7 +560,7 @@ export default function App() {
 
       </div>
 
-      {/* MODAL CONFIRMATION DIALOGS */}
+      {/* MODAL DIALOGS */}
       <AbortConfirmation
         isOpen={isAbortModalOpen}
         onClose={() => setIsAbortModalOpen(false)}

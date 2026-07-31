@@ -1,232 +1,153 @@
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { X, CheckCircle2, XCircle, Info } from 'lucide-react';
-import { isInstrumentReady, getStatusColorClass } from '../utils/InstrumentStatus';
+import { X, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 
 export default function SkipConfirmation({ isOpen, onClose, event, onConfirmSkip }) {
   const [isChecked, setIsChecked] = useState(false);
 
   useEffect(() => {
-    if (!isOpen) {
+    if (isOpen) {
       setIsChecked(false);
     }
-  }, [isOpen, event]);
+  }, [isOpen]);
 
   if (!isOpen || !event) return null;
 
-  const runName = event.runName || 'Run 1 (1)';
-  const errorType = event.errorType || 'Task Error';
-  
-  // Data Current Instrument & Task
-  const currentInst = event.instName || event.instrument || 'BlueWasher';
-  const currentTask = event.taskName || 'washing';
-  const labwareName = event.labwareName || event.labwareId || 'Lorem_Ipsum';
-
-  const startTime = event.startTime || `${event.date || '12-09-2026'} ${event.time || '02:30:00 pm'}`;
-  const estEndTime = event.estEndTime || `${event.date || '12-09-2026'} 02:37:27 pm`;
-
-  // --- 1. AMBIL NEXT INSTRUMENT DENGAN KEY FALLBACK LENGKAP ---
+  // 1. Ambil Nama Target Inst dengan Safe Fallbacks
   const rawNextInst = 
     event.nextInstrument ?? 
     event.nextInstName ?? 
-    event.next_instrument ?? 
     event.nextInst ?? 
-    event.targetInst ?? 
     '';
 
-  const safeNextInst = typeof rawNextInst === 'string' ? rawNextInst.trim().toUpperCase() : '';
+  const safeNextInstStr = typeof rawNextInst === 'string' ? rawNextInst.trim().toUpperCase() : '';
 
-  // --- 2. DETEKSI KETAT LAST TASK (EKSPLISIT) ---
-  const hasExplicitTrueFlag = 
+  // 2. Evaluasi Eksplisit Flags Last Task
+  const isLastTask = Boolean(
     event.isLastTask === true ||
     String(event.isLastTask).toLowerCase() === 'true' ||
-    event.is_last_task === true ||
-    String(event.is_last_task).toLowerCase() === 'true';
+    safeNextInstStr === 'NONE' ||
+    safeNextInstStr === 'END' ||
+    safeNextInstStr === 'LAST'
+  );
 
-  const hasExplicitEndValue = safeNextInst === 'NONE' || safeNextInst === 'END';
+  // 3. Nama display untuk instrumen berikutnya
+  const nextInstName = isLastTask ? '' : (rawNextInst || 'STACK');
 
-  // HANYA true jika dipicu flag eksplisit true ATAU kata 'NONE'/'END'
-  const isLastTask = hasExplicitTrueFlag || hasExplicitEndValue;
+  const nextConnStatus = event.nextInstConnectionStatus ?? 'Connected';
+  const nextInstStatus = event.nextInstStatus ?? 'Idle';
 
-  // Data Next Instrument Target
-  // Jika bukan last task tapi rawNextInst kosong, fallback ke 'STACK' atau 'Target Instrument'
-  const nextInst = isLastTask 
-    ? '' 
-    : (rawNextInst || 'STACK');
+  // Pembacaan Kelayakan Instrumen Target
+  const isConnOk = nextConnStatus === 'Connected';
+  const isStatusOk = nextInstStatus === 'Idle' || nextInstStatus === 'Ready';
 
-  const nextConnStatus = event.nextInstConnectionStatus ?? event.nextConnectionStatus ?? 'Connected';
-  const nextInstStatus = event.nextInstStatus ?? event.nextStatusState ?? 'Idle';
-
-  // Task terakhir tidak terhalang status instrument berikutnya
-  const isNextInstReady = isLastTask ? true : isInstrumentReady(nextConnStatus, nextInstStatus);
-
-  // LOGIKA CTA: Tombol Skip HANYA aktif jika Checkbox Dicentang DAN Target Siap
+  // Jika Last Task, tidak bergantung pada status instrumen berikutnya
+  const isNextInstReady = isLastTask ? true : (isConnOk && isStatusOk);
   const isSkipEnabled = isChecked && isNextInstReady;
 
-  // LOGIKA PESAN ACTION REQUIRED
-  const targetLocation = nextInst;
-
-  const handleConfirm = () => {
-    if (isSkipEnabled && onConfirmSkip) {
-      onConfirmSkip(event);
-      setIsChecked(false);
-    }
-  };
-
-  return createPortal(
-    <div className="fixed top-0 right-0 bottom-0 left-20 z-20 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-      {/* Backdrop listener */}
-      <div className="fixed inset-0" onClick={onClose} />
-
-      {/* Modal Card */}
-      <div className="relative z-10 bg-white rounded-lg shadow-2xl w-full max-w-md h-fit max-h-[85vh] flex flex-col border border-gray-200 text-gray-800 font-sans overflow-hidden">
-        
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
-          <h2 className="text-sm font-bold text-gray-900 tracking-tight flex items-center space-x-2">
-            <span>User Confirmation - Skip Task</span>
-          </h2>
-          <button 
-            type="button"
-            onClick={onClose} 
-            className="text-gray-400 hover:text-gray-700 transition-colors cursor-pointer p-1 rounded-md hover:bg-gray-100"
-            aria-label="Close"
-          >
-            <X className="w-4 h-4" />
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200">
+        {/* Modal Header */}
+        <div className="bg-amber-600 text-white px-5 py-3.5 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="w-5 h-5 text-amber-200" />
+            <h3 className="font-semibold text-sm">Confirm Skip Action</h3>
+          </div>
+          <button onClick={onClose} className="text-amber-100 hover:text-white transition-colors">
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="p-5 space-y-3.5 text-xs overflow-y-auto">
-          <p className="text-xs font-semibold text-gray-900 leading-relaxed">
-            Error in {runName}: <span className="text-red-600 font-bold">{errorType}</span>
+        {/* Modal Content */}
+        <div className="p-5 space-y-4 text-xs text-gray-700">
+          <p className="text-gray-800 leading-relaxed">
+            You are about to skip the current failed step on <strong className="font-semibold">{event.instName || 'Instrument'}</strong> for <strong className="font-semibold">{event.runName || 'Run'}</strong>.
           </p>
 
-          {/* Component Location & Timings */}
-          <div className="bg-gray-50 p-3 rounded border border-gray-200/80 space-y-2">
-            <div>
-              <span className="font-semibold text-gray-500 block text-[10px] uppercase tracking-wider">Location</span>
-              <span className="text-gray-800 font-medium">{currentInst} : {currentTask}</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-gray-200/60">
-              <div>
-                <span className="font-semibold text-gray-500 block text-[10px] uppercase tracking-wider">Start Time</span>
-                <span className="text-gray-700">{startTime}</span>
-              </div>
-              <div>
-                <span className="font-semibold text-gray-500 block text-[10px] uppercase tracking-wider">Est. End Time</span>
-                <span className="text-gray-700">{estEndTime}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Next Instrument Target Status / End of Run Notice */}
-          <div className="space-y-1 pt-1">
-            <span className="font-semibold text-gray-700 block text-[11px]">
-              {isLastTask ? 'Workflow Status :' : `Next Target Instrument Status (${nextInst}) :`}
+          {/* Validation Target Status Section */}
+          <div className="bg-gray-50 p-3.5 rounded-md border border-gray-200 space-y-2">
+            <span className="text-[11px] uppercase font-bold text-gray-500 tracking-wider block">
+              Validation Check
             </span>
 
             {isLastTask ? (
-              <div className="flex items-center space-x-1.5 text-blue-700 font-semibold text-xs bg-blue-50 p-2.5 rounded border border-blue-100">
-                <Info className="w-4 h-4 text-blue-600 shrink-0" />
-                <span>This is the final task. Skipping will mark the run as completed.</span>
+              <div className="flex items-center space-x-2 text-emerald-700 font-medium">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>This is the final task in the protocol. No downstream handover required.</span>
               </div>
             ) : (
-              <div className="flex items-center space-x-2">
-                {isNextInstReady ? (
-                  <div className="flex items-center space-x-1.5 text-emerald-700 font-bold text-xs">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>{nextInst}: Ready for Transfer</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center space-x-1.5 text-red-600 font-bold text-xs">
-                    <XCircle className="w-4 h-4 text-red-500 shrink-0" />
-                    <span>{nextInst}: {nextInstStatus}</span>
-                  </div>
-                )}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span>Target Instrument: <strong className="font-semibold text-gray-800">{nextInstName}</strong></span>
+                  {isNextInstReady ? (
+                    <span className="flex items-center space-x-1 text-emerald-600 font-semibold text-[11px]">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>READY</span>
+                    </span>
+                  ) : (
+                    <span className="flex items-center space-x-1 text-red-600 font-semibold text-[11px]">
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>NOT READY</span>
+                    </span>
+                  )}
+                </div>
 
-                {/* Tooltip */}
-                <div className="relative group inline-flex items-center">
-                  <Info className="w-3.5 h-3.5 text-blue-500 cursor-pointer hover:text-blue-600 transition-colors" />
-                  <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:flex flex-col bg-gray-900 text-white p-2.5 rounded-md shadow-xl w-52 z-50 pointer-events-none transition-all duration-150">
-                    <div className="space-y-1 text-[11px] font-normal">
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-300">Connection:</span>
-                        <strong className={nextConnStatus.toLowerCase() === 'connected' ? 'text-emerald-400' : 'text-red-400'}>
-                          {nextConnStatus}
-                        </strong>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-300">Status:</span>
-                        <strong className={getStatusColorClass ? getStatusColorClass(nextInstStatus) : 'text-red-400'}>
-                          {nextInstStatus}
-                        </strong>
-                      </div>
-                    </div>
+                <div className="text-[11px] text-gray-500 space-y-0.5 pt-1 border-t border-gray-200">
+                  <div className="flex justify-between">
+                    <span>Connection:</span>
+                    <span className={isConnOk ? 'text-gray-700 font-medium' : 'text-red-600 font-bold'}>{nextConnStatus}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Status:</span>
+                    <span className={isStatusOk ? 'text-gray-700 font-medium' : 'text-red-600 font-bold'}>{nextInstStatus}</span>
                   </div>
                 </div>
               </div>
             )}
           </div>
 
-          <hr className="border-gray-100" />
+          {!isNextInstReady && !isLastTask && (
+            <p className="text-red-600 bg-red-50 p-2.5 rounded border border-red-200 text-[11px] leading-tight">
+              Cannot skip step: The target instrument (<strong>{nextInstName}</strong>) is currently not ready or disconnected.
+            </p>
+          )}
 
-          {/* Action Required */}
-          <div className="space-y-2">
-            <span className="font-semibold text-gray-800 block">Action Required :</span>
-            
-            <label className="flex items-start space-x-2.5 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={isChecked}
-                onChange={(e) => setIsChecked(e.target.checked)}
-                className="mt-0.5 w-3.5 h-3.5 rounded border-gray-300 text-amber-600 focus:ring-amber-500 cursor-pointer shrink-0"
-              />
-              <span className="text-gray-600 text-xs leading-tight">
-                {isLastTask ? (
-                  <>Ensure labware <strong className="font-semibold text-gray-900">{labwareName}</strong> is safely retrieved from <strong className="font-semibold text-gray-900">{currentInst}</strong>.</>
-                ) : (
-                  <>Ensure labware <strong className="font-semibold text-gray-900">{labwareName}</strong> is placed in <strong className="font-semibold text-gray-900">{targetLocation}</strong>.</>
-                )}
-              </span>
+          {/* User Acknowledgment */}
+          <div className="flex items-start space-x-2 pt-2">
+            <input
+              type="checkbox"
+              id="confirmSkipCheckbox"
+              checked={isChecked}
+              onChange={(e) => setIsChecked(e.target.checked)}
+              className="mt-0.5 w-4 h-4 text-amber-600 rounded focus:ring-amber-500 cursor-pointer"
+            />
+            <label htmlFor="confirmSkipCheckbox" className="text-gray-600 leading-snug cursor-pointer select-none">
+              I understand that skipping this step may result in unwashed or incomplete samples moving to the next process.
             </label>
-
-            {/* INFO PENDUKUNG: Tampil jika user mencentang checkbox tetapi Next Instrument belum Idle */}
-            {!isLastTask && isChecked && !isNextInstReady && (
-              <p className="text-[11px] text-amber-600 font-medium pt-1 leading-tight">
-                ⚠️ Skip button is blocked because next instrument (<strong>{nextInst}</strong>) status is <strong>{nextInstStatus}</strong>. Change status to Idle to proceed.
-              </p>
-            )}
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-end space-x-2 px-5 py-3 bg-gray-50 border-t border-gray-100 shrink-0">
+        {/* Modal Footer */}
+        <div className="bg-gray-50 px-5 py-3 flex justify-end space-x-2 border-t border-gray-200">
           <button
-            type="button"
             onClick={onClose}
-            className="px-3.5 py-1.5 border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 rounded font-semibold text-xs transition-colors cursor-pointer shadow-2xs"
+            className="px-4 py-1.5 border border-gray-300 rounded text-xs font-semibold text-gray-700 hover:bg-gray-100 transition-colors"
           >
             Cancel
           </button>
-          
           <button
-            type="button"
             disabled={!isSkipEnabled}
-            onClick={handleConfirm}
-            className={`px-3.5 py-1.5 rounded font-semibold text-xs transition-colors shadow-2xs ${
-              isSkipEnabled
-                ? 'bg-amber-600 hover:bg-amber-700 text-white cursor-pointer'
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-75'
+            onClick={() => onConfirmSkip(event)}
+            className={`px-4 py-1.5 rounded text-xs font-semibold text-white transition-colors ${
+              isSkipEnabled 
+                ? 'bg-amber-600 hover:bg-amber-700 cursor-pointer shadow-sm' 
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
             }`}
           >
-            {isLastTask ? 'Finish Run' : 'Skip Task'}
+            Confirm & Skip
           </button>
         </div>
-
       </div>
-    </div>,
-    document.body
+    </div>
   );
 }
