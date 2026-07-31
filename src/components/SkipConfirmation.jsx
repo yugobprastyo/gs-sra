@@ -14,6 +14,9 @@ export default function SkipConfirmation({ isOpen, onClose, event, onConfirmSkip
 
   if (!isOpen || !event) return null;
 
+  // Debugger untuk mengecek payload asli dari Error Generator
+  // console.log("Event Payload:", event);
+
   const runName = event.runName || 'Run 1 (1)';
   const errorType = event.errorType || 'Task Error';
   
@@ -25,29 +28,36 @@ export default function SkipConfirmation({ isOpen, onClose, event, onConfirmSkip
   const startTime = event.startTime || `${event.date || '12-09-2026'} ${event.time || '02:30:00 pm'}`;
   const estEndTime = event.estEndTime || `${event.date || '12-09-2026'} 02:37:27 pm`;
 
-  // Deteksi apakah ini task terakhir
-  const rawNextInst = event.nextInstrument || event.nextInstName;
+  // --- DETEKSI KETAT LAST TASK ---
+  const rawNextInst = event.nextInstrument || event.nextInstName || event.next_instrument;
+  const safeNextInst = typeof rawNextInst === 'string' ? rawNextInst.trim().toUpperCase() : '';
+
+  // Mengecek boolean, string "true", properti snake_case, maupun kata kunci instrumen akhir
   const isLastTask = Boolean(
-    event.isLastTask || 
-    !rawNextInst || 
-    rawNextInst.trim().toUpperCase() === 'NONE' || 
-    rawNextInst.trim().toUpperCase() === 'END'
+    event.isLastTask === true ||
+    String(event.isLastTask).toLowerCase() === 'true' ||
+    event.is_last_task === true ||
+    String(event.is_last_task).toLowerCase() === 'true' ||
+    !rawNextInst ||
+    safeNextInst === '' ||
+    safeNextInst === 'NONE' ||
+    safeNextInst === 'END' ||
+    safeNextInst === 'STACK' // Sertakan ini jika STACK di sistem Anda berarti tempat penyimpanan akhir/Last Task
   );
 
-  // Data Next Instrument Target (Hanya jika BUKAN task terakhir)
+  // Data Next Instrument Target (Hanya diisi jika BUKAN task terakhir)
   const nextInst = isLastTask ? '' : rawNextInst;
   const nextConnStatus = event.nextInstConnectionStatus ?? 'Connected';
   const nextInstStatus = event.nextInstStatus ?? 'Faulted';
 
-  // Cek apakah Target Siap (Task terakhir selalu siap/tidak terhalang instrument berikutnya)
+  // Task terakhir tidak terhalang status instrument berikutnya
   const isNextInstReady = isLastTask ? true : isInstrumentReady(nextConnStatus, nextInstStatus);
 
   // LOGIKA CTA: Tombol Skip HANYA aktif jika Checkbox Dicentang DAN Target Siap
   const isSkipEnabled = isChecked && isNextInstReady;
 
   // LOGIKA PESAN ACTION REQUIRED
-  const isNextInstStack = !isLastTask && nextInst.trim().toUpperCase() === 'STACK';
-  const targetLocation = isNextInstStack ? currentInst : nextInst;
+  const targetLocation = nextInst;
 
   const handleConfirm = () => {
     if (isSkipEnabled && onConfirmSkip) {
