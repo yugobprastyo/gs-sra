@@ -27,21 +27,26 @@ export default function SkipConfirmation({ isOpen, onClose, event, onConfirmSkip
 
   // Deteksi apakah ini task terakhir
   const rawNextInst = event.nextInstrument || event.nextInstName;
-  const isLastTask = event.isLastTask || !rawNextInst || rawNextInst.trim().toUpperCase() === 'NONE' || rawNextInst.trim().toUpperCase() === 'END';
+  const isLastTask = Boolean(
+    event.isLastTask || 
+    !rawNextInst || 
+    rawNextInst.trim().toUpperCase() === 'NONE' || 
+    rawNextInst.trim().toUpperCase() === 'END'
+  );
 
-  // Data Next Instrument Target
-  const nextInst = isLastTask ? 'STACK' : rawNextInst;
+  // Data Next Instrument Target (Hanya jika BUKAN task terakhir)
+  const nextInst = isLastTask ? '' : rawNextInst;
   const nextConnStatus = event.nextInstConnectionStatus ?? 'Connected';
   const nextInstStatus = event.nextInstStatus ?? 'Faulted';
 
-  // Cek apakah Next Instrument Siap (Jika task terakhir / STACK, biasanya dianggap siap atau tergantung status STACK)
+  // Cek apakah Target Siap (Task terakhir selalu siap/tidak terhalang instrument berikutnya)
   const isNextInstReady = isLastTask ? true : isInstrumentReady(nextConnStatus, nextInstStatus);
 
   // LOGIKA CTA: Tombol Skip HANYA aktif jika Checkbox Dicentang DAN Target Siap
   const isSkipEnabled = isChecked && isNextInstReady;
 
   // LOGIKA PESAN ACTION REQUIRED
-  const isNextInstStack = isLastTask || nextInst.trim().toUpperCase() === 'STACK';
+  const isNextInstStack = !isLastTask && nextInst.trim().toUpperCase() === 'STACK';
   const targetLocation = isNextInstStack ? currentInst : nextInst;
 
   const handleConfirm = () => {
@@ -107,7 +112,7 @@ export default function SkipConfirmation({ isOpen, onClose, event, onConfirmSkip
             </span>
 
             {isLastTask ? (
-              <div className="flex items-center space-x-1.5 text-blue-700 font-semibold text-xs bg-blue-50 p-2 rounded border border-blue-100">
+              <div className="flex items-center space-x-1.5 text-blue-700 font-semibold text-xs bg-blue-50 p-2.5 rounded border border-blue-100">
                 <Info className="w-4 h-4 text-blue-600 shrink-0" />
                 <span>This is the final task. Skipping will mark the run as completed.</span>
               </div>
