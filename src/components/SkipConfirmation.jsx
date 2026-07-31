@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, FastForward, CheckCircle2, XCircle, Info } from 'lucide-react';
+import { X, CheckCircle2, XCircle, Info } from 'lucide-react';
 import { isInstrumentReady, getStatusColorClass } from '../utils/InstrumentStatus';
 
 export default function SkipConfirmation({ isOpen, onClose, event, onConfirmSkip }) {
@@ -14,14 +14,11 @@ export default function SkipConfirmation({ isOpen, onClose, event, onConfirmSkip
 
   if (!isOpen || !event) return null;
 
-  // Debugger untuk mengecek payload asli dari Error Generator
-  // console.log("Event Payload:", event);
-
   const runName = event.runName || 'Run 1 (1)';
   const errorType = event.errorType || 'Task Error';
   
   // Data Current Instrument & Task
-  const currentInst = event.instName || 'BlueWasher';
+  const currentInst = event.instName || event.instrument || 'BlueWasher';
   const currentTask = event.taskName || 'washing';
   const labwareName = event.labwareName || event.labwareId || 'Lorem_Ipsum';
 
@@ -29,10 +26,11 @@ export default function SkipConfirmation({ isOpen, onClose, event, onConfirmSkip
   const estEndTime = event.estEndTime || `${event.date || '12-09-2026'} 02:37:27 pm`;
 
   // --- DETEKSI KETAT LAST TASK ---
-  const rawNextInst = event.nextInstrument || event.nextInstName || event.next_instrument;
+  const rawNextInst = event.nextInstrument ?? event.nextInstName ?? event.next_instrument;
   const safeNextInst = typeof rawNextInst === 'string' ? rawNextInst.trim().toUpperCase() : '';
 
-  // Mengecek boolean, string "true", properti snake_case, maupun kata kunci instrumen akhir
+  // isLastTask HANYA true jika dipicu oleh flag khusus ATAU pilihan NONE/END/Kosong
+  // STACK TIDAK LAGI dianggap sebagai last task secara otomatis
   const isLastTask = Boolean(
     event.isLastTask === true ||
     String(event.isLastTask).toLowerCase() === 'true' ||
@@ -41,8 +39,7 @@ export default function SkipConfirmation({ isOpen, onClose, event, onConfirmSkip
     !rawNextInst ||
     safeNextInst === '' ||
     safeNextInst === 'NONE' ||
-    safeNextInst === 'END' ||
-    safeNextInst === 'STACK' // Sertakan ini jika STACK di sistem Anda berarti tempat penyimpanan akhir/Last Task
+    safeNextInst === 'END'
   );
 
   // Data Next Instrument Target (Hanya diisi jika BUKAN task terakhir)
@@ -77,7 +74,6 @@ export default function SkipConfirmation({ isOpen, onClose, event, onConfirmSkip
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
           <h2 className="text-sm font-bold text-gray-900 tracking-tight flex items-center space-x-2">
-            <FastForward className="w-4 h-4 text-amber-600 shrink-0" />
             <span>User Confirmation - Skip Task</span>
           </h2>
           <button 

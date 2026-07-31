@@ -10,13 +10,20 @@ export default function ErrorGenerator({ isOpen, onClose, onStartSimulation }) {
   const [nextConnStatus, setNextConnStatus] = useState('Connected');
   const [nextStatusState, setNextStatusState] = useState('Idle');
 
-  // Sync Next Instrument secara otomatis saat Primary Instrument berubah
+  // Sinkronisasi otomatis nilai nextInst saat Primary Instrument berubah
   useEffect(() => {
-    if (selectedInst === 'STACK') {
-      setNextInst('BlueWasher');
-    } else {
-      setNextInst('STACK');
-    }
+    setNextInst((prevNext) => {
+      // Pertahankan pilihan NONE jika user sudah memilih Last Task
+      if (prevNext === 'NONE') return 'NONE';
+
+      if (selectedInst === 'STACK') {
+        // Jika primary adalah STACK, pastikan nextInst bukan STACK (default ke BlueWasher)
+        return prevNext === 'STACK' ? 'BlueWasher' : prevNext;
+      } else {
+        // Jika primary selain STACK, pilihan wajib STACK
+        return 'STACK';
+      }
+    });
   }, [selectedInst]);
 
   if (!isOpen) return null;
@@ -118,6 +125,7 @@ export default function ErrorGenerator({ isOpen, onClose, onStartSimulation }) {
               ) : (
                 <option value="STACK">STACK (Auto Transfer Target)</option>
               )}
+              
               {/* OPSI UNTUK SIMULASI LAST TASK */}
               <option value="NONE" className="font-semibold text-amber-700">
                 🛑 None (End of Workflow / Last Task)
@@ -163,12 +171,14 @@ export default function ErrorGenerator({ isOpen, onClose, onStartSimulation }) {
         {/* Footer */}
         <div className="flex items-center justify-end space-x-2 p-4 bg-gray-50 border-t border-gray-100 rounded-b-md">
           <button
+            type="button"
             onClick={onClose}
             className="px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-100 rounded font-semibold text-xs cursor-pointer"
           >
             Cancel
           </button>
           <button
+            type="button"
             onClick={handleSimulate}
             className="flex items-center space-x-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-semibold text-xs shadow-sm cursor-pointer"
           >
