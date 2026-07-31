@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Home, 
   Folder, 
@@ -37,21 +37,23 @@ const INSTRUMENT_TASK_MAP = {
   STACK: { taskName: 'transfer protocol', errorType: 'Gripper Jammed' },
 };
 
+const generateUniqueId = () => `evt-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+
 export default function App() {
   const [activeMainMenu, setActiveMainMenu] = useState('Runs');
   const [activeRunTab, setActiveRunTab] = useState('Queue');
 
-  // State Simulasi
+  // Simulation State
   const [runs, setRuns] = useState(INITIAL_RUNS);
   const [isSimulating, setIsSimulating] = useState(false);
   const [simTimer, setSimTimer] = useState(0);
   
-  // Simulation Config & Connection State (Primary Instrument)
+  // Simulation Config & Connection State
   const [selectedErrorInst, setSelectedErrorInst] = useState(null);
   const [errorCategory, setErrorCategory] = useState('Instrument Error');
   const [instrumentConnection, setInstrumentConnection] = useState('Connected');
   
-  // Simulation Config State (Next Target Instrument)
+  // Next Target Instrument Config
   const [nextTargetInst, setNextTargetInst] = useState('STACK');
   const [nextInstStatusConfig, setNextInstStatusConfig] = useState('Idle');
   const [nextInstConnConfig, setNextInstConnConfig] = useState('Connected');
@@ -63,14 +65,13 @@ export default function App() {
   const [isSkipModalOpen, setIsSkipModalOpen] = useState(false);
   const [activeEventForConfirmation, setActiveEventForConfirmation] = useState(null);
 
-  // State Details & UI Selection
+  // Detail & Navigation States
   const [selectedRunId, setSelectedRunId] = useState(1);
   const [activeTab, setActiveTab] = useState('Run Details');
   const [activeSubTab, setActiveSubTab] = useState('Events');
   const [eventsHistory, setEventsHistory] = useState(false);
 
-  // Helper Tambah Event ke Run Spesifik
-  const addEventToRun = (runId, newEvent) => {
+  const addEventToRun = useCallback((runId, newEvent) => {
     setRuns((prevRuns) =>
       prevRuns.map((r) => {
         if (r.id === runId) {
@@ -83,7 +84,7 @@ export default function App() {
         return r;
       })
     );
-  };
+  }, []);
 
   const handleStartSimulation = (payload) => {
     const { 
@@ -100,7 +101,6 @@ export default function App() {
     setErrorCategory(category);
     setInstrumentConnection('Connected');
     
-    // Simpan Konfigurasi Next Instrument
     setNextTargetInst(nextInstrument || (instrument === 'STACK' ? 'BlueWasher' : 'STACK'));
     setNextInstStatusConfig(nextInstStatus || 'Idle');
     setNextInstConnConfig(nextInstConnectionStatus || 'Connected');
@@ -122,15 +122,13 @@ export default function App() {
     setIsSkipModalOpen(false);
   };
 
-  // Timer Simulasi per detik
+  // Timer Effect
   useEffect(() => {
     let interval = null;
     if (isSimulating) {
       interval = setInterval(() => {
         setSimTimer((prev) => prev + 1);
       }, 1000);
-    } else {
-      clearInterval(interval);
     }
     return () => clearInterval(interval);
   }, [isSimulating]);
@@ -139,19 +137,16 @@ export default function App() {
   useEffect(() => {
     if (!isSimulating || !selectedErrorInst) return;
 
-    // Detik 2: Run 1 (1) & Run 1 (2) masuk status Running
     if (simTimer === 2) {
       setRuns((prev) =>
         prev.map((r) => (r.id === 1 || r.id === 2 ? { ...r, status: 'Running' } : r))
       );
     }
 
-    // Detik 4: Jika 'Instrument Disconnect', ubah state koneksi instrumen asal
     if (simTimer === 4 && errorCategory === 'Instrument Disconnect') {
       setInstrumentConnection('Disconnected');
     }
 
-    // Detik 6: Run 1 (1) Terblokir (User Action Card)
     if (simTimer === 6) {
       const instConfig = INSTRUMENT_TASK_MAP[selectedErrorInst] || {
         taskName: 'Task Executing',
@@ -164,7 +159,7 @@ export default function App() {
           : instConfig.errorType;
 
       addEventToRun(1, {
-        id: Date.now(),
+        id: generateUniqueId(),
         cardType: 'user_action',
         title: 'User Action - Run Blocked',
         instName: selectedErrorInst,
@@ -173,12 +168,10 @@ export default function App() {
         errorType: errorTitleMsg,
         connectionStatus: errorCategory === 'Instrument Disconnect' ? 'Disconnected' : 'Connected',
         instStatus: 'Faulted',
-
         nextInstrument: nextTargetInst,
         nextInstConnectionStatus: nextInstConnConfig, 
         nextInstStatus: nextInstStatusConfig,         
         nextInstConsumableStatus: 'OK',
-
         labwareId: 'LW_96_WELL',
         startTime: '12-09-2026 02:30:00 pm',
         estEndTime: '12-09-2026 02:40:00 pm',
@@ -186,7 +179,6 @@ export default function App() {
       });
     }
 
-    // Detik 9: Run 1 (2) Terblokir karena ketergantungan instrumen
     if (simTimer === 9) {
       const dependencyReason = 
         errorCategory === 'Instrument Disconnect' 
@@ -194,7 +186,7 @@ export default function App() {
           : `${selectedErrorInst} Faulted/Error`;
 
       addEventToRun(2, {
-        id: Date.now(),
+        id: generateUniqueId(),
         cardType: 'validation_info',
         title: 'Validation Info - Run Blocked',
         instName: selectedErrorInst,
@@ -207,22 +199,17 @@ export default function App() {
 
       setIsSimulating(false);
     }
-  }, [simTimer, isSimulating, selectedErrorInst, errorCategory, nextTargetInst, nextInstStatusConfig, nextInstConnConfig]);
+  }, [simTimer, isSimulating, selectedErrorInst, errorCategory, nextTargetInst, nextInstStatusConfig, nextInstConnConfig, addEventToRun]);
 
-  // Handler untuk Request Aksi dari User Action Card
   const handleUserActionRequest = (actionType, eventData) => {
     setActiveEventForConfirmation(eventData);
-    if (actionType === 'ABORT') {
-      setIsAbortModalOpen(true);
-    } else if (actionType === 'RETRY') {
-      setIsRetryModalOpen(true);
-    } else if (actionType === 'SKIP') {
-      setIsSkipModalOpen(true);
-    }
+    if (actionType === 'ABORT') setIsAbortModalOpen(true);
+    if (actionType === 'RETRY') setIsRetryModalOpen(true);
+    if (actionType === 'SKIP') setIsSkipModalOpen(true);
   };
 
-  // Callback Confirm Abort
   const handleConfirmAbort = (targetEvent) => {
+    if (!targetEvent) return;
     setRuns((prev) =>
       prev.map((r) => {
         if (r.id === 1 || r.name === targetEvent.runName) {
@@ -238,25 +225,19 @@ export default function App() {
     setIsAbortModalOpen(false);
   };
 
-  // Callback Confirm Retry
   const handleConfirmRetry = (targetEvent) => {
+    if (!targetEvent) return;
     setRuns((prev) =>
       prev.map((r) => {
         if (r.id === 1 || r.name === targetEvent.runName) {
           return {
             ...r,
             status: 'Running',
-            events: r.events.map((e) => {
-              if (e.id === targetEvent.id) {
-                return {
-                  ...e,
-                  instStatus: 'Faulted',
-                  actionTaken: 'RETRY_ATTEMPTED',
-                  newStatus: 'Running',
-                };
-              }
-              return e;
-            }),
+            events: r.events.map((e) =>
+              e.id === targetEvent.id
+                ? { ...e, instStatus: 'Faulted', actionTaken: 'RETRY_ATTEMPTED', newStatus: 'Running' }
+                : e
+            ),
           };
         }
         return r;
@@ -265,25 +246,19 @@ export default function App() {
     setIsRetryModalOpen(false);
   };
 
-  // Callback Confirm Skip
   const handleConfirmSkip = (targetEvent) => {
+    if (!targetEvent) return;
     setRuns((prev) =>
       prev.map((r) => {
         if (r.id === 1 || r.name === targetEvent.runName) {
           return {
             ...r,
             status: 'Running',
-            events: r.events.map((e) => {
-              if (e.id === targetEvent.id) {
-                return {
-                  ...e,
-                  instStatus: 'Faulted',
-                  actionTaken: 'STEP_SKIPPED',
-                  newStatus: 'Running',
-                };
-              }
-              return e;
-            }),
+            events: r.events.map((e) =>
+              e.id === targetEvent.id
+                ? { ...e, instStatus: 'Faulted', actionTaken: 'STEP_SKIPPED', newStatus: 'Running' }
+                : e
+            ),
           };
         }
         return r;
@@ -334,8 +309,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen w-screen bg-gray-100 font-sans text-gray-800 overflow-hidden select-none relative">
-      
-      {/* 1. MAIN SIDEBAR NAVIGATION (Selalu di atas dengan z-30) */}
+      {/* 1. MAIN SIDEBAR NAVIGATION */}
       <aside className="w-20 bg-[#1e2029] flex flex-col justify-between items-center py-4 shrink-0 h-screen z-30 relative shadow-lg">
         <div className="flex flex-col items-center w-full space-y-6">
           <div className="relative cursor-pointer">
@@ -367,7 +341,6 @@ export default function App() {
 
       {/* 2. MAIN CONTENT AREA */}
       <div className="flex-1 flex flex-col min-w-0 bg-white relative overflow-hidden">
-        
         {activeMainMenu === 'Runs' && (
           <>
             {/* HEADER BAR */}
@@ -375,7 +348,6 @@ export default function App() {
               <div className="flex items-center space-x-4">
                 <h1 className="text-xl font-semibold text-gray-800">Run Explorer</h1>
                 
-                {/* Control Generator Simulation */}
                 <div className="flex items-center space-x-3 bg-gray-100 p-1.5 rounded-lg border border-gray-200 ml-4">
                   {!isSimulating ? (
                     <button
@@ -424,8 +396,6 @@ export default function App() {
 
             {/* MAIN WORKSPACE */}
             <div className="flex-1 flex overflow-hidden">
-              
-              {/* SUB TABS QUEUE / DRAFT / FINISHED */}
               <div className="w-20 border-r border-gray-200 bg-white flex flex-col pt-3 shrink-0">
                 {runExplorerTabs.map((tab) => {
                   const Icon = tab.icon;
@@ -523,7 +493,6 @@ export default function App() {
                       ))}
                     </div>
 
-                    {/* EVENTS CARD DISPLAY AREA */}
                     <div className="flex-1 p-4 overflow-auto bg-gray-50/20">
                       {activeSubTab === 'Events' && (
                         <div>
@@ -598,7 +567,6 @@ export default function App() {
         onClose={() => setIsErrorModalOpen(false)}
         onStartSimulation={handleStartSimulation}
       />
-
     </div>
   );
 }

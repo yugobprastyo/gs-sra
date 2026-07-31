@@ -71,8 +71,8 @@ export default function UserActionCard({ event, onActionConfirm }) {
           {/* Skip Action */}
           <button 
             type="button"
-            onClick={() => onActionConfirm && onActionConfirm('SKIP', event)}
-            className="px-3.5 py-1.5 border border-amber-400 text-amber-700 hover:bg-amber-50 rounded text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer"
+  onClick={() => onActionConfirm && onActionConfirm('SKIP', event)}
+  className="px-3.5 py-1.5 border border-amber-400 text-amber-700 hover:bg-amber-50 rounded text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer"
           >
             Skip
           </button>

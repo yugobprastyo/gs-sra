@@ -25,27 +25,37 @@ export default function SkipConfirmation({ isOpen, onClose, event, onConfirmSkip
   const startTime = event.startTime || `${event.date || '12-09-2026'} ${event.time || '02:30:00 pm'}`;
   const estEndTime = event.estEndTime || `${event.date || '12-09-2026'} 02:37:27 pm`;
 
-  // --- DETEKSI KETAT LAST TASK ---
-  const rawNextInst = event.nextInstrument ?? event.nextInstName ?? event.next_instrument;
+  // --- 1. AMBIL NEXT INSTRUMENT DENGAN KEY FALLBACK LENGKAP ---
+  const rawNextInst = 
+    event.nextInstrument ?? 
+    event.nextInstName ?? 
+    event.next_instrument ?? 
+    event.nextInst ?? 
+    event.targetInst ?? 
+    '';
+
   const safeNextInst = typeof rawNextInst === 'string' ? rawNextInst.trim().toUpperCase() : '';
 
-  // isLastTask HANYA true jika dipicu oleh flag khusus ATAU pilihan NONE/END/Kosong
-  // STACK TIDAK LAGI dianggap sebagai last task secara otomatis
-  const isLastTask = Boolean(
+  // --- 2. DETEKSI KETAT LAST TASK (EKSPLISIT) ---
+  const hasExplicitTrueFlag = 
     event.isLastTask === true ||
     String(event.isLastTask).toLowerCase() === 'true' ||
     event.is_last_task === true ||
-    String(event.is_last_task).toLowerCase() === 'true' ||
-    !rawNextInst ||
-    safeNextInst === '' ||
-    safeNextInst === 'NONE' ||
-    safeNextInst === 'END'
-  );
+    String(event.is_last_task).toLowerCase() === 'true';
 
-  // Data Next Instrument Target (Hanya diisi jika BUKAN task terakhir)
-  const nextInst = isLastTask ? '' : rawNextInst;
-  const nextConnStatus = event.nextInstConnectionStatus ?? 'Connected';
-  const nextInstStatus = event.nextInstStatus ?? 'Faulted';
+  const hasExplicitEndValue = safeNextInst === 'NONE' || safeNextInst === 'END';
+
+  // HANYA true jika dipicu flag eksplisit true ATAU kata 'NONE'/'END'
+  const isLastTask = hasExplicitTrueFlag || hasExplicitEndValue;
+
+  // Data Next Instrument Target
+  // Jika bukan last task tapi rawNextInst kosong, fallback ke 'STACK' atau 'Target Instrument'
+  const nextInst = isLastTask 
+    ? '' 
+    : (rawNextInst || 'STACK');
+
+  const nextConnStatus = event.nextInstConnectionStatus ?? event.nextConnectionStatus ?? 'Connected';
+  const nextInstStatus = event.nextInstStatus ?? event.nextStatusState ?? 'Idle';
 
   // Task terakhir tidak terhalang status instrument berikutnya
   const isNextInstReady = isLastTask ? true : isInstrumentReady(nextConnStatus, nextInstStatus);
