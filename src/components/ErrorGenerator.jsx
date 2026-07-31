@@ -26,7 +26,10 @@ export default function ErrorGenerator({ isOpen, onClose, onStartSimulation }) {
     const primaryInstStatus = errorCategory === 'Instrument Error' ? 'Faulted' : 'Disconnected';
     const primaryConnectionStatus = errorCategory === 'Instrument Disconnect' ? 'Disconnected' : 'Connected';
 
-    // 2. Kirim payload lengkap dan presisi ke App.jsx
+    // 2. Deteksi apakah target yang dipilih adalah Last Task / End of Workflow
+    const isLastTask = nextInst === 'NONE';
+
+    // 3. Kirim payload lengkap ke App.jsx
     if (onStartSimulation) {
       onStartSimulation({
         instrument: selectedInst,
@@ -34,10 +37,11 @@ export default function ErrorGenerator({ isOpen, onClose, onStartSimulation }) {
         primaryInstStatus,
         connectionStatus: primaryConnectionStatus,
         
-        // PERBAIKAN LOGIKA: Gunakan state `nextInst` langsung (tidak perlu ternary hardcode lagi)
-        nextInstrument: nextInst,
-        nextInstConnectionStatus: nextConnStatus,
-        nextInstStatus: nextStatusState,
+        // Kirim null / 'NONE' dan flag isLastTask
+        isLastTask: isLastTask,
+        nextInstrument: isLastTask ? null : nextInst,
+        nextInstConnectionStatus: isLastTask ? 'Connected' : nextConnStatus,
+        nextInstStatus: isLastTask ? 'Idle' : nextStatusState,
       });
     }
     
@@ -98,60 +102,62 @@ export default function ErrorGenerator({ isOpen, onClose, onStartSimulation }) {
           <div>
             <label className="block font-semibold text-gray-700 mb-1">
               Next Instrument Target
-              {!isPrimaryStack && (
-                <span className="text-[10px] text-gray-400 font-normal ml-1">
-                  (Auto Transfer Target: STACK)
-                </span>
-              )}
             </label>
 
-            {isPrimaryStack ? (
-              <select
-                value={nextInst}
-                onChange={(e) => setNextInst(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500 bg-white font-medium"
-              >
-                <option value="BlueWasher">BlueWasher</option>
-                <option value="MANTIS">MANTIS</option>
-                <option value="TECAN">TECAN</option>
-              </select>
-            ) : (
-              <input
-                type="text"
-                disabled
-                value="STACK"
-                className="w-full p-2 border border-gray-200 rounded bg-gray-100 text-gray-600 font-semibold cursor-not-allowed"
-              />
-            )}
+            <select
+              value={nextInst}
+              onChange={(e) => setNextInst(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500 bg-white font-medium"
+            >
+              {isPrimaryStack ? (
+                <>
+                  <option value="BlueWasher">BlueWasher</option>
+                  <option value="MANTIS">MANTIS</option>
+                  <option value="TECAN">TECAN</option>
+                </>
+              ) : (
+                <option value="STACK">STACK (Auto Transfer Target)</option>
+              )}
+              {/* OPSI UNTUK SIMULASI LAST TASK */}
+              <option value="NONE" className="font-semibold text-amber-700">
+                🛑 None (End of Workflow / Last Task)
+              </option>
+            </select>
           </div>
 
-          {/* Next Target Status States */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block font-semibold text-gray-700 mb-1">Connection</label>
-              <select
-                value={nextConnStatus}
-                onChange={(e) => setNextConnStatus(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded bg-white"
-              >
-                <option value="Connected">Connected</option>
-                <option value="Disconnected">Disconnected</option>
-              </select>
-            </div>
+          {/* Next Target Status States (Hanya tampil jika bukan Last Task) */}
+          {nextInst !== 'NONE' ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block font-semibold text-gray-700 mb-1">Connection</label>
+                <select
+                  value={nextConnStatus}
+                  onChange={(e) => setNextConnStatus(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded bg-white"
+                >
+                  <option value="Connected">Connected</option>
+                  <option value="Disconnected">Disconnected</option>
+                </select>
+              </div>
 
-            <div>
-              <label className="block font-semibold text-gray-700 mb-1">Status State</label>
-              <select
-                value={nextStatusState}
-                onChange={(e) => setNextStatusState(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded bg-white"
-              >
-                <option value="Idle">Idle (Green - Ready)</option>
-                <option value="Faulted">Faulted (Yellow - Cause Block)</option>
-                <option value="Busy">Busy (Red - Not Ready)</option>
-              </select>
+              <div>
+                <label className="block font-semibold text-gray-700 mb-1">Status State</label>
+                <select
+                  value={nextStatusState}
+                  onChange={(e) => setNextStatusState(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded bg-white"
+                >
+                  <option value="Idle">Idle (Green - Ready)</option>
+                  <option value="Faulted">Faulted (Yellow - Cause Block)</option>
+                  <option value="Busy">Busy (Red - Not Ready)</option>
+                </select>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="p-2.5 bg-amber-50 border border-amber-200 rounded text-amber-800 text-[11px]">
+              💡 <strong>Simulasi Last Task:</strong> Tidak ada instrumen berikutnya. Melewatkan task ini akan menandai run sebagai selesai.
+            </div>
+          )}
         </div>
 
         {/* Footer */}
