@@ -11,6 +11,22 @@ export default function ErrorGenerator({ isOpen, onClose, onStartSimulation }) {
 
   if (!isOpen) return null;
 
+  // Handler saat Faulted Instrument berubah
+  const handleFaultedInstChange = (e) => {
+    const newInst = e.target.value;
+    setSelectedInst(newInst);
+
+    if (newInst === 'STACK') {
+      // Jika STACK, ubah nextInst ke opsi valid pertama selain STACK
+      if (nextInst === 'STACK') {
+        setNextInst('BlueWasher');
+      }
+    } else {
+      // Jika Non-STACK, paksa nextTarget menjadi STACK
+      setNextInst('STACK');
+    }
+  };
+
   const handleStart = () => {
     onStartSimulation({
       instrument: selectedInst,
@@ -22,6 +38,8 @@ export default function ErrorGenerator({ isOpen, onClose, onStartSimulation }) {
     });
     onClose();
   };
+
+  const isFaultedStack = selectedInst === 'STACK';
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -39,7 +57,7 @@ export default function ErrorGenerator({ isOpen, onClose, onStartSimulation }) {
             <label className="block font-semibold mb-1 text-gray-800">Faulted Instrument</label>
             <select
               value={selectedInst}
-              onChange={(e) => setSelectedInst(e.target.value)}
+              onChange={handleFaultedInstChange}
               className="w-full border border-gray-300 rounded p-2 text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none"
             >
               <option value="BlueWasher">BlueWasher</option>
@@ -86,12 +104,20 @@ export default function ErrorGenerator({ isOpen, onClose, onStartSimulation }) {
                 <select
                   value={nextInst}
                   onChange={(e) => setNextInst(e.target.value)}
-                  className="w-full border border-gray-300 rounded p-2 text-xs bg-white outline-none"
+                  disabled={!isFaultedStack}
+                  className={`w-full border border-gray-300 rounded p-2 text-xs outline-none ${
+                    !isFaultedStack ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'
+                  }`}
                 >
-                  <option value="STACK">STACK</option>
-                  <option value="BlueWasher">BlueWasher</option>
-                  <option value="MANTIS">MANTIS</option>
-                  <option value="TECAN">TECAN</option>
+                  {isFaultedStack ? (
+                    <>
+                      <option value="BlueWasher">BlueWasher</option>
+                      <option value="MANTIS">MANTIS</option>
+                      <option value="TECAN">TECAN</option>
+                    </>
+                  ) : (
+                    <option value="STACK">STACK</option>
+                  )}
                 </select>
               </div>
 
